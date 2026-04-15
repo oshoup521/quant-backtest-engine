@@ -1,0 +1,46 @@
+Date : 2026-04-16 01:12:06
+Directory : c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine
+Total : 15 files,  933 codes, 468 comments, 251 blanks, all 1652 lines
+
+Languages
++------------------+------------+------------+------------+------------+------------+
+| language         | files      | code       | comment    | blank      | total      |
++------------------+------------+------------+------------+------------+------------+
+| Python           |         13 |        685 |        468 |        171 |      1,324 |
+| Markdown         |          1 |        243 |          0 |         79 |        322 |
+| pip requirements |          1 |          5 |          0 |          1 |          6 |
++------------------+------------+------------+------------+------------+------------+
+
+Directories
++---------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                              | files      | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                 |         15 |        933 |        468 |        251 |      1,652 |
+| . (Files)                                                                                         |          3 |        328 |        200 |        102 |        630 |
+| data                                                                                              |          2 |         52 |         41 |         16 |        109 |
+| engine                                                                                            |          3 |        119 |         63 |         31 |        213 |
+| strategies                                                                                        |          4 |         92 |         90 |         41 |        223 |
+| ui                                                                                                |          3 |        342 |         74 |         61 |        477 |
++---------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++---------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| filename                                                                                          | language         | code       | comment    | blank      | total      |
++---------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\CLAUDE.md                        | Markdown         |        243 |          0 |         79 |        322 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\app.py                           | Python           |         80 |        200 |         22 |        302 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\data\__init__.py                 | Python           |          0 |          0 |          1 |          1 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\data\fetcher.py                  | Python           |         52 |         41 |         15 |        108 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\engine\__init__.py               | Python           |          0 |          0 |          1 |          1 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\engine\backtest.py               | Python           |         63 |         32 |         17 |        112 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\engine\metrics.py                | Python           |         56 |         31 |         13 |        100 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\requirements.txt                 | pip requirements |          5 |          0 |          1 |          6 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\strategies\__init__.py           | Python           |          6 |          0 |          2 |          8 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\strategies\buy_and_hold.py       | Python           |          9 |         20 |          8 |         37 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\strategies\ma_crossover.py       | Python           |         29 |         32 |         13 |         74 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\strategies\rsi_mean_reversion.py | Python           |         48 |         38 |         18 |        104 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\ui\__init__.py                   | Python           |          0 |          0 |          1 |          1 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\ui\charts.py                     | Python           |        201 |         42 |         26 |        269 |
+| c:\Users\oshoupadhyay\PROJECTS\MY-PROJECTs\quant-backtest-engine\ui\components.py                 | Python           |        141 |         32 |         34 |        207 |
+| Total                                                                                             |                  |        933 |        468 |        251 |      1,652 |
++---------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+

@@ -1,0 +1,206 @@
+"""
+Streamlit UI Components
+------------------------
+Reusable building blocks for the dashboard: metric cards, sidebar params,
+trade log table, and strategy parameter forms.
+"""
+
+import streamlit as st
+import pandas as pd
+from datetime import date, timedelta
+
+from data.fetcher import POPULAR_TICKERS
+
+
+# ---------------------------------------------------------------------------
+# Metric Cards
+# ---------------------------------------------------------------------------
+
+def render_metric_cards(metrics: dict, benchmark_metrics: dict) -> None:
+    """
+    Render two rows of 4 st.metric() cards showing strategy vs benchmark.
+    """
+    st.markdown("#### Performance vs Buy & Hold")
+
+    # Row 1 — Return metrics
+    c1, c2, c3, c4 = st.columns(4)
+
+    total_delta = metrics["total_return_pct"] - benchmark_metrics["total_return_pct"]
+    cagr_delta = metrics["cagr_pct"] - benchmark_metrics["cagr_pct"]
+    dd_delta = metrics["max_drawdown_pct"] - benchmark_metrics["max_drawdown_pct"]
+    sharpe_delta = metrics["sharpe_ratio"] - benchmark_metrics["sharpe_ratio"]
+
+    c1.metric(
+        "Total Return",
+        f"{metrics['total_return_pct']:+.2f}%",
+        delta=f"{total_delta:+.2f}% vs B&H",
+        delta_color="normal",
+    )
+    c2.metric(
+        "CAGR",
+        f"{metrics['cagr_pct']:+.2f}%",
+        delta=f"{cagr_delta:+.2f}% vs B&H",
+        delta_color="normal",
+    )
+    c3.metric(
+        "Max Drawdown",
+        f"{metrics['max_drawdown_pct']:.2f}%",
+        delta=f"{dd_delta:+.2f}% vs B&H",
+        delta_color="inverse",  # less negative drawdown = green
+    )
+    c4.metric(
+        "Sharpe Ratio",
+        f"{metrics['sharpe_ratio']:.3f}",
+        delta=f"{sharpe_delta:+.3f} vs B&H",
+        delta_color="normal",
+    )
+
+    st.markdown("")  # spacer
+
+    # Row 2 — Trade statistics
+    c5, c6, c7, c8 = st.columns(4)
+
+    c5.metric("Win Rate", f"{metrics['win_rate_pct']:.1f}%")
+    c6.metric("Total Trades", str(metrics["total_trades"]))
+    c7.metric("Avg Trade Duration", f"{metrics['avg_duration_days']:.0f} days")
+    c8.metric(
+        "Best / Worst Trade",
+        f"{metrics['best_trade_pct']:+.2f}%",
+        delta=f"Worst: {metrics['worst_trade_pct']:+.2f}%",
+        delta_color="off",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Sidebar — Strategy Parameter Forms
+# ---------------------------------------------------------------------------
+
+def render_sidebar() -> dict:
+    """
+    Render the full sidebar and return a dict of all user-selected params.
+    """
+    st.sidebar.title("Backtest Configuration")
+    st.sidebar.markdown("---")
+
+    # --- Ticker ---
+    st.sidebar.subheader("Market")
+    ticker_mode = st.sidebar.radio(
+        "Ticker input", ["Pick from list", "Type manually"], horizontal=True
+    )
+    if ticker_mode == "Pick from list":
+        label = st.sidebar.selectbox("Select ticker", list(POPULAR_TICKERS.keys()))
+        ticker = POPULAR_TICKERS[label]
+    else:
+        ticker = st.sidebar.text_input("Ticker symbol", value="^NSEI").strip().upper()
+
+    st.sidebar.caption(f"Selected: **{ticker}**")
+
+    # --- Date Range ---
+    st.sidebar.subheader("Date Range")
+    default_end = date.today()
+    default_start = default_end - timedelta(days=5 * 365)
+
+    col_s, col_e = st.sidebar.columns(2)
+    start_date = col_s.date_input("Start", value=default_start, max_value=default_end)
+    end_date = col_e.date_input("End", value=default_end, min_value=start_date)
+
+    # --- Strategy ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Strategy")
+    strategy = st.sidebar.selectbox(
+        "Choose strategy",
+        ["Moving Average Crossover", "RSI Mean Reversion", "Buy & Hold"],
+    )
+
+    strategy_params = {}
+
+    if strategy == "Moving Average Crossover":
+        st.sidebar.markdown("**MA Crossover Parameters**")
+        short_window = st.sidebar.slider("Short-term SMA (days)", 5, 100, 50, step=5)
+        long_window = st.sidebar.slider("Long-term SMA (days)", 50, 300, 200, step=10)
+        if short_window >= long_window:
+            st.sidebar.error("Short window must be < Long window")
+        strategy_params = {"short_window": short_window, "long_window": long_window}
+
+    elif strategy == "RSI Mean Reversion":
+        st.sidebar.markdown("**RSI Parameters**")
+        rsi_period = st.sidebar.slider("RSI Period", 5, 30, 14, step=1)
+        oversold = st.sidebar.slider("Oversold threshold", 10, 40, 30, step=1)
+        overbought = st.sidebar.slider("Overbought threshold", 60, 90, 70, step=1)
+        if oversold >= overbought:
+            st.sidebar.error("Oversold must be < Overbought")
+        strategy_params = {
+            "rsi_period": rsi_period,
+            "oversold": oversold,
+            "overbought": overbought,
+        }
+
+    # --- Capital & Costs ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Capital & Costs")
+    initial_capital = st.sidebar.number_input(
+        "Initial Capital (₹)", min_value=10_000, max_value=10_000_000,
+        value=100_000, step=10_000,
+    )
+    transaction_cost_pct = st.sidebar.slider(
+        "Transaction Cost per leg (%)", 0.0, 1.0, 0.1, step=0.05,
+        help="Brokerage + slippage per trade leg. Applied on both entry and exit.",
+    )
+
+    st.sidebar.markdown("---")
+    run_clicked = st.sidebar.button("Run Backtest", type="primary", use_container_width=True)
+
+    return {
+        "ticker": ticker,
+        "start_date": str(start_date),
+        "end_date": str(end_date),
+        "strategy": strategy,
+        "strategy_params": strategy_params,
+        "initial_capital": float(initial_capital),
+        "transaction_cost": transaction_cost_pct / 100,
+        "run_clicked": run_clicked,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Trade Log Table
+# ---------------------------------------------------------------------------
+
+def render_trade_log(trade_log: pd.DataFrame) -> None:
+    """
+    Render the full trade log inside an expandable section.
+    """
+    if trade_log.empty:
+        st.info("No completed trades were recorded for this strategy and date range.")
+        return
+
+    with st.expander(f"Trade Log — {len(trade_log)} trades", expanded=False):
+        display = trade_log.copy()
+
+        # Format columns for display
+        display["entry_date"] = pd.to_datetime(display["entry_date"]).dt.strftime("%d %b %Y")
+        display["exit_date"] = pd.to_datetime(display["exit_date"]).dt.strftime("%d %b %Y")
+        display["entry_price"] = display["entry_price"].map("₹{:,.2f}".format)
+        display["exit_price"] = display["exit_price"].map("₹{:,.2f}".format)
+        display["return_pct"] = display["return_pct"].map("{:+.2f}%".format)
+        display["duration_days"] = display["duration_days"].map("{:.0f} days".format)
+
+        display.columns = [
+            "Entry Date", "Entry Price", "Exit Date", "Exit Price",
+            "Return %", "Type", "Duration",
+        ]
+
+        st.dataframe(
+            display,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # Download button
+        csv = trade_log.to_csv(index=False)
+        st.download_button(
+            label="Download trade log as CSV",
+            data=csv,
+            file_name="trade_log.csv",
+            mime="text/csv",
+        )
