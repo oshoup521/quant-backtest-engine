@@ -33,6 +33,16 @@ def _compute_rsi(close: pd.Series, period: int) -> pd.Series:
 
     rs = avg_gain / avg_loss.replace(0, np.nan)
     rsi = 100 - (100 / (1 + rs))
+
+    # Handle edge cases explicitly:
+    # - No losses and some gains => RSI should be 100 (strong uptrend)
+    # - No gains and some losses => RSI should be 0 (strong downtrend)
+    # - No gains and no losses      => RSI should be 50 (flat market)
+    no_loss = avg_loss == 0
+    no_gain = avg_gain == 0
+    rsi = rsi.mask(no_loss & ~no_gain, 100.0)
+    rsi = rsi.mask(no_gain & ~no_loss, 0.0)
+    rsi = rsi.mask(no_gain & no_loss, 50.0)
     return rsi
 
 

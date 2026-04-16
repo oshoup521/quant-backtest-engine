@@ -21,7 +21,7 @@ A professional-grade **Algorithmic Trading Backtesting Engine** built with Pytho
 ### Install
 
 ```bash
-pip install streamlit yfinance pandas numpy plotly
+pip install streamlit yfinance pandas numpy plotly pytest
 ```
 
 Run the app:
@@ -239,7 +239,7 @@ def equity_curve(portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame) -> go.F
 
 - `render_metric_cards(metrics: dict)` — 4-column `st.metric()` grid
 - `render_trade_log(trade_log: pd.DataFrame)` — `st.expander` wrapping styled `st.dataframe`
-- `render_strategy_params(strategy: str)` — Returns param dict from sidebar sliders
+- `render_sidebar()` — Returns ticker, date, strategy params, costs, and run trigger
 
 ---
 
@@ -252,7 +252,7 @@ def equity_curve(portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame) -> go.F
 [Start Date]            st.date_input
 [End Date]              st.date_input
 [Strategy Selector]     st.selectbox — MA Crossover / RSI / Buy & Hold
-[Strategy Params]       Dynamic sliders (rendered by components.render_strategy_params)
+[Strategy Params]       Dynamic sliders (rendered inside components.render_sidebar)
 [Initial Capital]       st.number_input, default 100000
 [Transaction Cost %]    st.slider, 0.0–1.0%, default 0.1%
 [Run Backtest Button]   st.button
@@ -302,7 +302,6 @@ def equity_curve(portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame) -> go.F
 - Bollinger Bands strategy
 - Multi-ticker portfolio backtesting (correlation matrix)
 - Monte Carlo simulation for drawdown distribution
-- Export trade log as CSV (`st.download_button`)
 - Walk-forward optimization to avoid overfitting
 
 ---
