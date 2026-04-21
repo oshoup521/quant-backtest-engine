@@ -14,7 +14,12 @@ from strategies.buy_and_hold import generate_signals as bh_signals
 from engine.backtest import run_backtest
 from engine.metrics import compute_metrics, compute_drawdown_series
 from ui.components import render_sidebar, render_metric_cards, render_trade_log
-from ui.charts import candlestick_with_signals, equity_curve, drawdown_chart
+from ui.charts import (
+    candlestick_with_signals,
+    equity_curve,
+    drawdown_chart,
+    INTERACTIVE_CHART_CONFIG,
+)
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -80,6 +85,12 @@ st.markdown(
             background: #161b22;
             border: 1px solid #21262d;
             border-radius: 8px;
+        }
+
+        /* Let Plotly capture pinch / wheel gestures inside charts so the page
+           doesn't scroll while the user is zooming the chart on mobile. */
+        [data-testid="stPlotlyChart"] {
+            touch-action: none;
         }
     </style>
     """,
@@ -205,6 +216,27 @@ drawdown_series = compute_drawdown_series(portfolio_df)
 # Results header
 # ---------------------------------------------------------------------------
 
+# Build "info pills" describing the run config (params, capital, costs)
+def _pill(label: str, value: str, accent: str = "#1f6feb") -> str:
+    return (
+        f'<span style="display:inline-block; background:#161b22; '
+        f'border:1px solid #21262d; border-left:3px solid {accent}; '
+        f'border-radius:6px; padding:4px 10px; margin:4px 6px 0 0; '
+        f'font-size:0.78rem; color:#e6edf3;">'
+        f'<span style="color:#8b949e;">{label}</span> '
+        f'<strong>{value}</strong></span>'
+    )
+
+
+pills_html = ""
+if strategy_name == "Moving Average Crossover":
+    pills_html += _pill("SMA", f"{strategy_params['short_window']} / {strategy_params['long_window']}", "#ffa657")
+elif strategy_name == "RSI Mean Reversion":
+    pills_html += _pill("RSI", f"{strategy_params['rsi_period']} · {strategy_params['oversold']}/{strategy_params['overbought']}", "#79c0ff")
+pills_html += _pill("Capital", f"₹{initial_capital:,.0f}", "#26a641")
+pills_html += _pill("Cost / leg", f"{transaction_cost * 100:.2f}%", "#d2a8ff")
+pills_html += _pill("Bars", f"{len(df_signals):,}", "#8b949e")
+
 st.markdown(
     f"""
     <div style="padding: 8px 0 4px 0;">
@@ -214,6 +246,7 @@ st.markdown(
             &nbsp;·&nbsp;
             <span style="color:#8b949e; font-size:1rem;">{start_date} → {end_date}</span>
         </h2>
+        <div style="margin-top:8px;">{pills_html}</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -243,13 +276,14 @@ tab1, tab2, tab3, tab4 = st.tabs(
 
 with tab1:
     fig_candle = candlestick_with_signals(df_signals, trade_log_df, strategy_name)
-    st.plotly_chart(fig_candle, use_container_width=True)
+    st.plotly_chart(fig_candle, use_container_width=True, config=INTERACTIVE_CHART_CONFIG)
+    st.caption("Tip: scroll / pinch inside the chart to zoom · drag to pan · double-click to reset.")
 
 with tab2:
     fig_equity = equity_curve(
         portfolio_df, bh_portfolio_df, strategy_name, initial_capital
     )
-    st.plotly_chart(fig_equity, use_container_width=True)
+    st.plotly_chart(fig_equity, use_container_width=True, config=INTERACTIVE_CHART_CONFIG)
 
     # Summary comparison table
     comp_data = {
@@ -275,7 +309,7 @@ with tab2:
 
 with tab3:
     fig_dd = drawdown_chart(portfolio_df, drawdown_series)
-    st.plotly_chart(fig_dd, use_container_width=True)
+    st.plotly_chart(fig_dd, use_container_width=True, config=INTERACTIVE_CHART_CONFIG)
     st.caption(
         f"Maximum Drawdown: **{metrics['max_drawdown_pct']:.2f}%** "
         f"(Buy & Hold: {bh_metrics['max_drawdown_pct']:.2f}%)"

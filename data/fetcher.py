@@ -13,17 +13,57 @@ import pandas as pd
 # Constants
 # ---------------------------------------------------------------------------
 
-POPULAR_TICKERS = {
-    "Nifty 50 (^NSEI)": "^NSEI",
-    "BSE Sensex (^BSESN)": "^BSESN",
-    "Reliance (RELIANCE.NS)": "RELIANCE.NS",
-    "TCS (TCS.NS)": "TCS.NS",
-    "HDFC Bank (HDFCBANK.NS)": "HDFCBANK.NS",
-    "Infosys (INFY.NS)": "INFY.NS",
-    "S&P 500 (^GSPC)": "^GSPC",
-    "SPY ETF (SPY)": "SPY",
-    "Apple (AAPL)": "AAPL",
-    "Bitcoin (BTC-USD)": "BTC-USD",
+TICKERS_BY_MARKET: dict[str, dict[str, str]] = {
+    "India — Indices": {
+        "Nifty 50 (^NSEI)": "^NSEI",
+        "BSE Sensex (^BSESN)": "^BSESN",
+        "Bank Nifty (^NSEBANK)": "^NSEBANK",
+    },
+    "India — Stocks": {
+        "Reliance (RELIANCE.NS)": "RELIANCE.NS",
+        "TCS (TCS.NS)": "TCS.NS",
+        "HDFC Bank (HDFCBANK.NS)": "HDFCBANK.NS",
+        "Infosys (INFY.NS)": "INFY.NS",
+        "ICICI Bank (ICICIBANK.NS)": "ICICIBANK.NS",
+        "SBI (SBIN.NS)": "SBIN.NS",
+        "ITC (ITC.NS)": "ITC.NS",
+        "Larsen & Toubro (LT.NS)": "LT.NS",
+        "Bharti Airtel (BHARTIARTL.NS)": "BHARTIARTL.NS",
+        "Tata Motors (TATAMOTORS.NS)": "TATAMOTORS.NS",
+    },
+    "US — Indices & ETFs": {
+        "S&P 500 (^GSPC)": "^GSPC",
+        "Nasdaq Composite (^IXIC)": "^IXIC",
+        "Dow Jones (^DJI)": "^DJI",
+        "SPY ETF (SPY)": "SPY",
+        "QQQ ETF (QQQ)": "QQQ",
+    },
+    "US — Stocks": {
+        "Apple (AAPL)": "AAPL",
+        "Microsoft (MSFT)": "MSFT",
+        "Alphabet (GOOGL)": "GOOGL",
+        "Amazon (AMZN)": "AMZN",
+        "NVIDIA (NVDA)": "NVDA",
+        "Tesla (TSLA)": "TSLA",
+        "Meta (META)": "META",
+    },
+    "Crypto": {
+        "Bitcoin (BTC-USD)": "BTC-USD",
+        "Ethereum (ETH-USD)": "ETH-USD",
+        "Solana (SOL-USD)": "SOL-USD",
+    },
+    "Commodities & FX": {
+        "Gold Futures (GC=F)": "GC=F",
+        "Crude Oil (CL=F)": "CL=F",
+        "USD/INR (INR=X)": "INR=X",
+    },
+}
+
+# Flat dict kept for backwards compatibility / direct lookup
+POPULAR_TICKERS: dict[str, str] = {
+    label: symbol
+    for group in TICKERS_BY_MARKET.values()
+    for label, symbol in group.items()
 }
 
 

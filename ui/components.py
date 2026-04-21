@@ -9,7 +9,18 @@ import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
 
-from data.fetcher import POPULAR_TICKERS
+from data.fetcher import TICKERS_BY_MARKET
+
+
+# Quick date-range presets (label → days back from today, None = max)
+DATE_PRESETS: dict[str, int | None] = {
+    "1Y": 365,
+    "3Y": 3 * 365,
+    "5Y": 5 * 365,
+    "10Y": 10 * 365,
+    "Max": None,
+}
+MAX_LOOKBACK_DAYS = 25 * 365  # ~25y for "Max" preset
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +99,10 @@ def render_sidebar() -> dict:
         "Ticker input", ["Pick from list", "Type manually"], horizontal=True
     )
     if ticker_mode == "Pick from list":
-        label = st.sidebar.selectbox("Select ticker", list(POPULAR_TICKERS.keys()))
-        ticker = POPULAR_TICKERS[label]
+        market = st.sidebar.selectbox("Market", list(TICKERS_BY_MARKET.keys()))
+        group = TICKERS_BY_MARKET[market]
+        label = st.sidebar.selectbox("Ticker", list(group.keys()))
+        ticker = group[label]
     else:
         ticker = st.sidebar.text_input("Ticker symbol", value="^NSEI").strip().upper()
 
@@ -98,11 +111,28 @@ def render_sidebar() -> dict:
     # --- Date Range ---
     st.sidebar.subheader("Date Range")
     default_end = date.today()
-    default_start = default_end - timedelta(days=5 * 365)
+
+    # Quick presets — use session_state so the buttons drive the date inputs
+    preset_cols = st.sidebar.columns(len(DATE_PRESETS))
+    for col, (label, days) in zip(preset_cols, DATE_PRESETS.items()):
+        if col.button(label, use_container_width=True, key=f"preset_{label}"):
+            lookback = days if days is not None else MAX_LOOKBACK_DAYS
+            st.session_state["bt_start_date"] = default_end - timedelta(days=lookback)
+            st.session_state["bt_end_date"] = default_end
+
+    # Initialize defaults on first run
+    if "bt_start_date" not in st.session_state:
+        st.session_state["bt_start_date"] = default_end - timedelta(days=5 * 365)
+    if "bt_end_date" not in st.session_state:
+        st.session_state["bt_end_date"] = default_end
 
     col_s, col_e = st.sidebar.columns(2)
-    start_date = col_s.date_input("Start", value=default_start, max_value=default_end)
-    end_date = col_e.date_input("End", value=default_end, min_value=start_date)
+    start_date = col_s.date_input(
+        "Start", key="bt_start_date", max_value=default_end,
+    )
+    end_date = col_e.date_input(
+        "End", key="bt_end_date", min_value=start_date, max_value=default_end,
+    )
 
     # --- Strategy ---
     st.sidebar.markdown("---")
@@ -174,27 +204,47 @@ def render_trade_log(trade_log: pd.DataFrame) -> None:
         st.info("No completed trades were recorded for this strategy and date range.")
         return
 
-    with st.expander(f"Trade Log — {len(trade_log)} trades", expanded=False):
-        display = trade_log.copy()
+    # Quick summary strip above the expander
+    wins = (trade_log["return_pct"] > 0).sum()
+    losses = (trade_log["return_pct"] <= 0).sum()
+    avg_ret = trade_log["return_pct"].mean()
+    best = trade_log["return_pct"].max()
+    worst = trade_log["return_pct"].min()
+    s1, s2, s3, s4, s5 = st.columns(5)
+    s1.metric("Trades", f"{len(trade_log)}")
+    s2.metric("Wins / Losses", f"{wins} / {losses}")
+    s3.metric("Avg Return", f"{avg_ret:+.2f}%")
+    s4.metric("Best", f"{best:+.2f}%")
+    s5.metric("Worst", f"{worst:+.2f}%")
 
-        # Format columns for display
+    with st.expander(f"Trade Log — {len(trade_log)} trades", expanded=True):
+        display = trade_log.copy()
         display["entry_date"] = pd.to_datetime(display["entry_date"]).dt.strftime("%d %b %Y")
         display["exit_date"] = pd.to_datetime(display["exit_date"]).dt.strftime("%d %b %Y")
-        display["entry_price"] = display["entry_price"].map("₹{:,.2f}".format)
-        display["exit_price"] = display["exit_price"].map("₹{:,.2f}".format)
-        display["return_pct"] = display["return_pct"].map("{:+.2f}%".format)
-        display["duration_days"] = display["duration_days"].map("{:.0f} days".format)
-
         display.columns = [
             "Entry Date", "Entry Price", "Exit Date", "Exit Price",
             "Return %", "Type", "Duration",
         ]
 
-        st.dataframe(
-            display,
-            use_container_width=True,
-            hide_index=True,
+        def _color_return(val: float) -> str:
+            if val > 0:
+                return "color: #26a641; font-weight: 600;"
+            if val < 0:
+                return "color: #f85149; font-weight: 600;"
+            return "color: #8b949e;"
+
+        styled = (
+            display.style
+            .format({
+                "Entry Price": "₹{:,.2f}",
+                "Exit Price": "₹{:,.2f}",
+                "Return %": "{:+.2f}%",
+                "Duration": "{:.0f} days",
+            })
+            .map(_color_return, subset=["Return %"])
         )
+
+        st.dataframe(styled, use_container_width=True, hide_index=True)
 
         # Download button
         csv = trade_log.to_csv(index=False)

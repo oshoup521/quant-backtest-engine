@@ -21,6 +21,8 @@ COLOR_SMA_SHORT = "#ffa657"  # orange
 COLOR_SMA_LONG = "#d2a8ff"   # purple
 COLOR_RSI = "#79c0ff"
 COLOR_DRAWDOWN = "#f85149"
+COLOR_VOLUME_UP = "rgba(38, 166, 65, 0.45)"
+COLOR_VOLUME_DOWN = "rgba(248, 81, 73, 0.45)"
 
 
 def candlestick_with_signals(
@@ -43,17 +45,32 @@ def candlestick_with_signals(
     """
     has_rsi = "RSI" in df.columns
     has_sma = "SMA_short" in df.columns and "SMA_long" in df.columns
+    has_volume = "Volume" in df.columns and df["Volume"].sum() > 0
 
-    row_heights = [0.7, 0.3] if has_rsi else [1.0]
-    rows = 2 if has_rsi else 1
+    # Build row layout: price (always) + optional volume + optional RSI
+    titles = [f"{strategy_name} — Price Chart"]
+    heights = [1.0]
+    if has_volume:
+        titles.append("Volume")
+        heights.append(0.18)
+    if has_rsi:
+        titles.append("RSI")
+        heights.append(0.28)
+    # Normalize so heights sum to 1
+    total = sum(heights)
+    heights = [h / total for h in heights]
+
+    rows = len(heights)
+    volume_row = 2 if has_volume else None
+    rsi_row = (3 if has_volume else 2) if has_rsi else None
 
     fig = make_subplots(
         rows=rows,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.04,
-        row_heights=row_heights,
-        subplot_titles=(f"{strategy_name} — Price Chart", "RSI") if has_rsi else (f"{strategy_name} — Price Chart",),
+        vertical_spacing=0.03,
+        row_heights=heights,
+        subplot_titles=tuple(titles),
     )
 
     # --- Candlestick ---
@@ -132,6 +149,22 @@ def candlestick_with_signals(
             row=1, col=1,
         )
 
+    # --- Volume subplot ---
+    if has_volume:
+        volume_colors = [
+            COLOR_VOLUME_UP if c >= o else COLOR_VOLUME_DOWN
+            for o, c in zip(df["Open"], df["Close"])
+        ]
+        fig.add_trace(
+            go.Bar(
+                x=df.index, y=df["Volume"],
+                name="Volume",
+                marker_color=volume_colors,
+                showlegend=False,
+            ),
+            row=volume_row, col=1,
+        )
+
     # --- RSI subplot ---
     if has_rsi:
         fig.add_trace(
@@ -140,15 +173,18 @@ def candlestick_with_signals(
                 mode="lines", name="RSI",
                 line=dict(color=COLOR_RSI, width=1.5),
             ),
-            row=2, col=1,
+            row=rsi_row, col=1,
         )
         # Overbought / oversold reference lines
         for level, color in [(70, COLOR_SELL), (30, COLOR_BUY)]:
             fig.add_hline(
                 y=level, line_dash="dash",
                 line_color=color, opacity=0.6,
-                row=2, col=1,
+                row=rsi_row, col=1,
             )
+
+    # Height scales with the number of subplots
+    chart_height = 480 + (120 if has_volume else 0) + (160 if has_rsi else 0)
 
     fig.update_layout(
         template="plotly_dark",
@@ -157,12 +193,23 @@ def candlestick_with_signals(
         xaxis_rangeslider_visible=False,
         legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1),
         margin=dict(l=40, r=40, t=60, b=40),
-        height=600 if has_rsi else 500,
+        height=chart_height,
+        bargap=0.0,
+        dragmode="zoom",
     )
     fig.update_xaxes(showgrid=False, zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#21262d", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor="#21262d", zeroline=False, fixedrange=False)
 
     return fig
+
+
+# Plotly.js config to enable wheel/pinch zoom inside the chart area
+# (so the mouse wheel / touch pinch zooms the chart instead of scrolling the page)
+INTERACTIVE_CHART_CONFIG: dict = {
+    "scrollZoom": True,
+    "displaylogo": False,
+    "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+}
 
 
 def equity_curve(
@@ -227,7 +274,23 @@ def equity_curve(
         height=420,
         hovermode="x unified",
     )
-    fig.update_xaxes(showgrid=False)
+    fig.update_xaxes(
+        showgrid=False,
+        rangeselector=dict(
+            buttons=[
+                dict(count=1, label="1M", step="month", stepmode="backward"),
+                dict(count=6, label="6M", step="month", stepmode="backward"),
+                dict(count=1, label="YTD", step="year", stepmode="todate"),
+                dict(count=1, label="1Y", step="year", stepmode="backward"),
+                dict(count=5, label="5Y", step="year", stepmode="backward"),
+                dict(step="all", label="All"),
+            ],
+            bgcolor="#161b22",
+            activecolor="#1f6feb",
+            font=dict(color="#e6edf3"),
+            x=0, y=1.12,
+        ),
+    )
     fig.update_yaxes(showgrid=True, gridcolor="#21262d", tickprefix="₹")
 
     return fig
