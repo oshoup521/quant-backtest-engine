@@ -4,8 +4,11 @@ Quant Backtest Engine — Main Streamlit Application
 Entry point. Run with:  streamlit run app.py
 """
 
+from pathlib import Path
+
 import streamlit as st
 import pandas as pd
+from PIL import Image
 
 from data.fetcher import (
     fetch_ohlcv,
@@ -37,9 +40,12 @@ from ui.charts import (
 # Page config
 # ---------------------------------------------------------------------------
 
+FAVICON_PATH = Path(__file__).parent / "assets" / "favicon.png"
+_page_icon = Image.open(FAVICON_PATH) if FAVICON_PATH.exists() else "📈"
+
 st.set_page_config(
     page_title="Quant Backtest Engine",
-    page_icon="📈",
+    page_icon=_page_icon,
     layout="wide",
     initial_sidebar_state="expanded",
 )
