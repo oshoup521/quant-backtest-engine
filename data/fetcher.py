@@ -68,6 +68,62 @@ POPULAR_TICKERS: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
+# Market detection — used to pick a sensible risk-free rate per asset class
+# ---------------------------------------------------------------------------
+
+# Annual risk-free rates per asset class (used in Sharpe denominator).
+# Sources: 10Y govt bond yields (approx), crypto/commodities use 0 by convention.
+MARKET_RISK_FREE_RATES: dict[str, float] = {
+    "india": 0.07,
+    "us": 0.045,
+    "crypto": 0.0,
+    "commodity": 0.045,
+    "fx": 0.045,
+    "other": 0.045,
+}
+
+# Display currency per market (used for ₹ vs $ formatting hints)
+MARKET_CURRENCY: dict[str, str] = {
+    "india": "₹",
+    "us": "$",
+    "crypto": "$",
+    "commodity": "$",
+    "fx": "",
+    "other": "$",
+}
+
+
+def detect_market(ticker: str) -> str:
+    """
+    Classify a Yahoo Finance ticker into a market bucket.
+
+    Returns one of: 'india', 'us', 'crypto', 'commodity', 'fx', 'other'.
+    """
+    t = ticker.upper().strip()
+    if t.endswith(".NS") or t.endswith(".BO") or t in {"^NSEI", "^BSESN", "^NSEBANK"}:
+        return "india"
+    if t.endswith("-USD") or t.endswith("-USDT"):
+        return "crypto"
+    if t.endswith("=X"):
+        return "fx"
+    if t.endswith("=F"):
+        return "commodity"
+    if t in {"^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX"} or t.isalpha():
+        return "us"
+    return "other"
+
+
+def market_risk_free_rate(ticker: str) -> float:
+    """Return the annualized risk-free rate appropriate for the ticker's market."""
+    return MARKET_RISK_FREE_RATES[detect_market(ticker)]
+
+
+def market_currency(ticker: str) -> str:
+    """Return the display currency symbol for the ticker's market."""
+    return MARKET_CURRENCY[detect_market(ticker)]
+
+
+# ---------------------------------------------------------------------------
 # Core fetch function — cached by (ticker, start, end)
 # ---------------------------------------------------------------------------
 

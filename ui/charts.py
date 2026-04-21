@@ -8,21 +8,31 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# ---------------------------------------------------------------------------
-# Color palette
-# ---------------------------------------------------------------------------
-COLOR_BUY = "#26a641"       # green
-COLOR_SELL = "#f85149"      # red
-COLOR_STRATEGY = "#58a6ff"  # blue
-COLOR_BENCHMARK = "#8b949e" # gray
-COLOR_CANDLE_UP = "#26a641"
-COLOR_CANDLE_DOWN = "#f85149"
-COLOR_SMA_SHORT = "#ffa657"  # orange
-COLOR_SMA_LONG = "#d2a8ff"   # purple
-COLOR_RSI = "#79c0ff"
-COLOR_DRAWDOWN = "#f85149"
-COLOR_VOLUME_UP = "rgba(38, 166, 65, 0.45)"
-COLOR_VOLUME_DOWN = "rgba(248, 81, 73, 0.45)"
+from ui.theme import get_theme, get_plotly_template
+
+
+def _chart_colors() -> dict[str, str]:
+    """
+    Pull the palette used by chart builders from the active theme.
+    Called at chart-build time so every render reflects the current mode.
+    """
+    t = get_theme()
+    return {
+        "buy":          t["success"],
+        "sell":         t["danger"],
+        "strategy":     t["link"],
+        "benchmark":    t["text_muted"],
+        "candle_up":    t["candle_up"],
+        "candle_down":  t["candle_down"],
+        "sma_short":    t["orange"],
+        "sma_long":     t["purple"],
+        "rsi":          t["cyan"],
+        "drawdown":     t["danger"],
+        "volume_up":    t["volume_up"],
+        "volume_down":  t["volume_down"],
+        "bg":           t["bg"],
+        "grid":         t["grid"],
+    }
 
 
 def candlestick_with_signals(
@@ -43,6 +53,9 @@ def candlestick_with_signals(
     trade_log     : DataFrame with entry_date / exit_date columns
     strategy_name : str — used in chart title
     """
+    c = _chart_colors()
+    template = get_plotly_template()
+
     has_rsi = "RSI" in df.columns
     has_sma = "SMA_short" in df.columns and "SMA_long" in df.columns
     has_volume = "Volume" in df.columns and df["Volume"].sum() > 0
@@ -82,10 +95,10 @@ def candlestick_with_signals(
             low=df["Low"],
             close=df["Close"],
             name="Price",
-            increasing_line_color=COLOR_CANDLE_UP,
-            decreasing_line_color=COLOR_CANDLE_DOWN,
-            increasing_fillcolor=COLOR_CANDLE_UP,
-            decreasing_fillcolor=COLOR_CANDLE_DOWN,
+            increasing_line_color=c["candle_up"],
+            decreasing_line_color=c["candle_down"],
+            increasing_fillcolor=c["candle_up"],
+            decreasing_fillcolor=c["candle_down"],
         ),
         row=1, col=1,
     )
@@ -96,7 +109,7 @@ def candlestick_with_signals(
             go.Scatter(
                 x=df.index, y=df["SMA_short"],
                 mode="lines", name="SMA Short",
-                line=dict(color=COLOR_SMA_SHORT, width=1.5),
+                line=dict(color=c["sma_short"], width=1.5),
             ),
             row=1, col=1,
         )
@@ -104,7 +117,7 @@ def candlestick_with_signals(
             go.Scatter(
                 x=df.index, y=df["SMA_long"],
                 mode="lines", name="SMA Long",
-                line=dict(color=COLOR_SMA_LONG, width=1.5),
+                line=dict(color=c["sma_long"], width=1.5),
             ),
             row=1, col=1,
         )
@@ -121,7 +134,7 @@ def candlestick_with_signals(
                 name="Buy",
                 marker=dict(
                     symbol="triangle-up",
-                    color=COLOR_BUY,
+                    color=c["buy"],
                     size=12,
                     line=dict(color="white", width=1),
                 ),
@@ -141,7 +154,7 @@ def candlestick_with_signals(
                 name="Sell",
                 marker=dict(
                     symbol="triangle-down",
-                    color=COLOR_SELL,
+                    color=c["sell"],
                     size=12,
                     line=dict(color="white", width=1),
                 ),
@@ -152,8 +165,8 @@ def candlestick_with_signals(
     # --- Volume subplot ---
     if has_volume:
         volume_colors = [
-            COLOR_VOLUME_UP if c >= o else COLOR_VOLUME_DOWN
-            for o, c in zip(df["Open"], df["Close"])
+            c["volume_up"] if close >= open_ else c["volume_down"]
+            for open_, close in zip(df["Open"], df["Close"])
         ]
         fig.add_trace(
             go.Bar(
@@ -171,12 +184,12 @@ def candlestick_with_signals(
             go.Scatter(
                 x=df.index, y=df["RSI"],
                 mode="lines", name="RSI",
-                line=dict(color=COLOR_RSI, width=1.5),
+                line=dict(color=c["rsi"], width=1.5),
             ),
             row=rsi_row, col=1,
         )
         # Overbought / oversold reference lines
-        for level, color in [(70, COLOR_SELL), (30, COLOR_BUY)]:
+        for level, color in [(70, c["sell"]), (30, c["buy"])]:
             fig.add_hline(
                 y=level, line_dash="dash",
                 line_color=color, opacity=0.6,
@@ -187,9 +200,9 @@ def candlestick_with_signals(
     chart_height = 480 + (120 if has_volume else 0) + (160 if has_rsi else 0)
 
     fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#0d1117",
-        plot_bgcolor="#0d1117",
+        template=template,
+        paper_bgcolor=c["bg"],
+        plot_bgcolor=c["bg"],
         xaxis_rangeslider_visible=False,
         legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1),
         margin=dict(l=40, r=40, t=60, b=40),
@@ -198,7 +211,7 @@ def candlestick_with_signals(
         dragmode="zoom",
     )
     fig.update_xaxes(showgrid=False, zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#21262d", zeroline=False, fixedrange=False)
+    fig.update_yaxes(showgrid=True, gridcolor=c["grid"], zeroline=False, fixedrange=False)
 
     return fig
 
@@ -229,6 +242,10 @@ def equity_curve(
     strategy_name  : label for the active strategy line
     initial_capital: starting value for annotation
     """
+    c = _chart_colors()
+    template = get_plotly_template()
+    t = get_theme()
+
     fig = go.Figure()
 
     fig.add_trace(
@@ -237,9 +254,9 @@ def equity_curve(
             y=portfolio_df["Portfolio_Value"],
             mode="lines",
             name=strategy_name,
-            line=dict(color=COLOR_STRATEGY, width=2),
+            line=dict(color=c["strategy"], width=2),
             fill="tozeroy",
-            fillcolor="rgba(88, 166, 255, 0.05)",
+            fillcolor=t["neutral_soft"],
         )
     )
 
@@ -249,7 +266,7 @@ def equity_curve(
             y=benchmark_df["Portfolio_Value"],
             mode="lines",
             name="Buy & Hold",
-            line=dict(color=COLOR_BENCHMARK, width=1.5, dash="dash"),
+            line=dict(color=c["benchmark"], width=1.5, dash="dash"),
         )
     )
 
@@ -257,21 +274,30 @@ def equity_curve(
     fig.add_hline(
         y=initial_capital,
         line_dash="dot",
-        line_color="#3d444d",
+        line_color=t["border_strong"],
         annotation_text="Initial Capital",
         annotation_position="bottom right",
     )
 
     fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#0d1117",
-        plot_bgcolor="#0d1117",
-        title=dict(text="Portfolio Value Over Time", font=dict(size=16)),
-        xaxis_title="Date",
+        template=template,
+        paper_bgcolor=c["bg"],
+        plot_bgcolor=c["bg"],
+        title=dict(
+            text="Portfolio Value Over Time",
+            font=dict(size=16),
+            x=0, xanchor="left",
+            y=0.97, yanchor="top",
+        ),
+        xaxis_title=None,
         yaxis_title="Portfolio Value",
-        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1),
-        margin=dict(l=40, r=40, t=60, b=40),
-        height=420,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom", y=1.02,
+            xanchor="right", x=1,
+        ),
+        margin=dict(l=50, r=30, t=110, b=40),
+        height=460,
         hovermode="x unified",
     )
     fig.update_xaxes(
@@ -285,13 +311,16 @@ def equity_curve(
                 dict(count=5, label="5Y", step="year", stepmode="backward"),
                 dict(step="all", label="All"),
             ],
-            bgcolor="#161b22",
-            activecolor="#1f6feb",
-            font=dict(color="#e6edf3"),
-            x=0, y=1.12,
+            bgcolor=t["panel"],
+            activecolor=t["accent"],
+            bordercolor=t["border_strong"],
+            borderwidth=1,
+            font=dict(color=t["text"], size=12),
+            xanchor="right", x=1,
+            yanchor="bottom", y=1.12,
         ),
     )
-    fig.update_yaxes(showgrid=True, gridcolor="#21262d", tickprefix="₹")
+    fig.update_yaxes(showgrid=True, gridcolor=c["grid"], tickprefix="₹")
 
     return fig
 
@@ -300,6 +329,10 @@ def drawdown_chart(portfolio_df: pd.DataFrame, drawdown_series: pd.Series) -> go
     """
     Area chart showing the drawdown (%) over time.
     """
+    c = _chart_colors()
+    template = get_plotly_template()
+    t = get_theme()
+
     fig = go.Figure()
 
     fig.add_trace(
@@ -308,16 +341,16 @@ def drawdown_chart(portfolio_df: pd.DataFrame, drawdown_series: pd.Series) -> go
             y=drawdown_series.values,
             mode="lines",
             name="Drawdown %",
-            line=dict(color=COLOR_DRAWDOWN, width=1.5),
+            line=dict(color=c["drawdown"], width=1.5),
             fill="tozeroy",
-            fillcolor="rgba(248, 81, 73, 0.15)",
+            fillcolor=t["danger_soft"],
         )
     )
 
     fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#0d1117",
-        plot_bgcolor="#0d1117",
+        template=template,
+        paper_bgcolor=c["bg"],
+        plot_bgcolor=c["bg"],
         title=dict(text="Drawdown Over Time", font=dict(size=16)),
         xaxis_title="Date",
         yaxis_title="Drawdown %",
@@ -326,6 +359,6 @@ def drawdown_chart(portfolio_df: pd.DataFrame, drawdown_series: pd.Series) -> go
         hovermode="x unified",
     )
     fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#21262d", ticksuffix="%")
+    fig.update_yaxes(showgrid=True, gridcolor=c["grid"], ticksuffix="%")
 
     return fig

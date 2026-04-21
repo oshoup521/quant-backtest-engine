@@ -1,0 +1,19 @@
+# Streamlit configuration
+#
+# The app manages its own light/dark theme via a toggle in the header and the
+# palette defined in ui/theme.py. We lock Streamlit to a dark base so its
+# built-in widgets (calendar popup, number steppers, etc.) match the default
+# mode out of the box, and we hide the built-in theme picker to avoid
+# conflicts with the custom toggle.
+
+[theme]
+base = "dark"
+primaryColor = "#1f6feb"
+backgroundColor = "#0d1117"
+secondaryBackgroundColor = "#161b22"
+textColor = "#e6edf3"
+
+[client]
+# Hide Streamlit's default "Settings" menu entries (including the theme picker)
+# so users can't accidentally override our toggle.
+toolbarMode = "minimal"

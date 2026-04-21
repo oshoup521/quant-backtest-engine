@@ -10,6 +10,7 @@ import pandas as pd
 from datetime import date, timedelta
 
 from data.fetcher import TICKERS_BY_MARKET
+from ui.theme import get_theme
 
 
 # Quick date-range presets (label → days back from today, None = max)
@@ -79,6 +80,74 @@ def render_metric_cards(metrics: dict, benchmark_metrics: dict) -> None:
         f"{metrics['best_trade_pct']:+.2f}%",
         delta=f"Worst: {metrics['worst_trade_pct']:+.2f}%",
         delta_color="off",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Verdict Card
+# ---------------------------------------------------------------------------
+
+_SCORE_ICON: dict[str, str] = {"good": "✓", "okay": "•", "bad": "✗"}
+
+
+def render_verdict_card(verdict: dict) -> None:
+    """
+    Render the strategy verdict as a styled card with check-by-check breakdown.
+    Colors come from the active theme so the card adapts to dark/light mode.
+    """
+    t = get_theme()
+
+    # Rating-specific accent (border + label color) + soft background tint
+    rating_styles = {
+        "strong":       {"emoji": "🟢", "label": "STRONG STRATEGY",   "border": t["success"],    "bg": t["success_soft"]},
+        "mixed":        {"emoji": "🟡", "label": "MIXED RESULTS",     "border": t["warning"],    "bg": t["warning_soft"]},
+        "weak":         {"emoji": "🔴", "label": "WEAK STRATEGY",     "border": t["danger"],     "bg": t["danger_soft"]},
+        "insufficient": {"emoji": "⚪", "label": "INSUFFICIENT DATA", "border": t["text_muted"], "bg": t["neutral_soft"]},
+    }
+    score_color = {"good": t["success"], "okay": t["warning"], "bad": t["danger"]}
+    style = rating_styles[verdict["rating"]]
+
+    checks_html = ""
+    for check in verdict["checks"]:
+        color = score_color[check["score"]]
+        icon = _SCORE_ICON[check["score"]]
+        checks_html += (
+            f'<div style="display:flex; align-items:center; gap:8px; '
+            f'padding:6px 0; font-size:0.85rem; color:{t["text"]};">'
+            f'<span style="color:{color}; font-weight:700; font-size:1rem; '
+            f'min-width:14px; text-align:center;">{icon}</span>'
+            f'<span style="color:{t["text_muted"]}; min-width:160px;">{check["name"]}</span>'
+            f'<span>{check["message"]}</span>'
+            f"</div>"
+        )
+
+    st.markdown(
+        f"""
+        <div style="
+            background: {style['bg']};
+            border: 1px solid {t['border']};
+            border-left: 4px solid {style['border']};
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 12px 0 16px 0;
+        ">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <span style="font-size:1.3rem;">{style['emoji']}</span>
+                <span style="font-size:0.85rem; font-weight:700; letter-spacing:0.08em;
+                             color:{style['border']};">{style['label']}</span>
+            </div>
+            <div style="color:{t['text']}; font-size:0.95rem; line-height:1.45; margin-bottom:10px;">
+                {verdict['headline']}
+            </div>
+            <div style="border-top:1px solid {t['border']}; padding-top:8px; margin-top:8px;">
+                {checks_html}
+            </div>
+            <div style="color:{t['text_dim']}; font-size:0.72rem; margin-top:10px; font-style:italic;">
+                Educational backtest — not financial advice. Past performance is not indicative of future results.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
 
@@ -226,12 +295,15 @@ def render_trade_log(trade_log: pd.DataFrame) -> None:
             "Return %", "Type", "Duration",
         ]
 
+        t = get_theme()
+        pos_color, neg_color, neutral_color = t["success"], t["danger"], t["text_muted"]
+
         def _color_return(val: float) -> str:
             if val > 0:
-                return "color: #26a641; font-weight: 600;"
+                return f"color: {pos_color}; font-weight: 600;"
             if val < 0:
-                return "color: #f85149; font-weight: 600;"
-            return "color: #8b949e;"
+                return f"color: {neg_color}; font-weight: 600;"
+            return f"color: {neutral_color};"
 
         styled = (
             display.style

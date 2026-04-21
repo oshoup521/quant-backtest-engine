@@ -7,13 +7,25 @@ Entry point. Run with:  streamlit run app.py
 import streamlit as st
 import pandas as pd
 
-from data.fetcher import fetch_ohlcv, validate_date_range
+from data.fetcher import (
+    fetch_ohlcv,
+    validate_date_range,
+    detect_market,
+    market_risk_free_rate,
+)
+from ui.theme import get_theme, DEFAULT_MODE
 from strategies.ma_crossover import generate_signals as ma_signals
 from strategies.rsi_mean_reversion import generate_signals as rsi_signals
 from strategies.buy_and_hold import generate_signals as bh_signals
 from engine.backtest import run_backtest
 from engine.metrics import compute_metrics, compute_drawdown_series
-from ui.components import render_sidebar, render_metric_cards, render_trade_log
+from engine.verdict import evaluate_strategy
+from ui.components import (
+    render_sidebar,
+    render_metric_cards,
+    render_trade_log,
+    render_verdict_card,
+)
 from ui.charts import (
     candlestick_with_signals,
     equity_curve,
@@ -33,140 +45,194 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Custom CSS — dark FinTech aesthetic
+# Theme — initialize mode in session_state so all components see the same value
+# ---------------------------------------------------------------------------
+
+if "theme_mode" not in st.session_state:
+    st.session_state["theme_mode"] = DEFAULT_MODE
+T = get_theme()
+
+# ---------------------------------------------------------------------------
+# Custom CSS — driven entirely by the active theme palette
 # ---------------------------------------------------------------------------
 
 st.markdown(
-    """
+    f"""
     <style>
         /* Global background */
-        .stApp { background-color: #0d1117; color: #e6edf3; }
+        .stApp {{ background-color: {T['bg']}; color: {T['text']}; }}
+
+        /* Sticky header band — anchored under .sticky-header marker */
+        .sticky-header {{
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background: {T['bg']};
+            border-bottom: 1px solid {T['border']};
+            margin: -1rem -1rem 1rem -1rem;
+            padding: 12px 1rem 8px 1rem;
+            backdrop-filter: blur(6px);
+        }}
+        .sticky-header h1 {{
+            font-size: 1.5rem !important;
+            font-weight: 700;
+            color: {T['text']};
+            margin: 0 !important;
+            line-height: 1.2;
+        }}
+        .sticky-header .subtitle {{
+            color: {T['text_muted']};
+            font-size: 0.82rem;
+            margin-top: 2px;
+        }}
 
         /* Metric cards */
-        [data-testid="stMetric"] {
-            background: #161b22;
-            border: 1px solid #21262d;
+        [data-testid="stMetric"] {{
+            background: {T['panel']};
+            border: 1px solid {T['border']};
             border-radius: 8px;
             padding: 16px;
-        }
-        [data-testid="stMetricLabel"] { color: #8b949e; font-size: 0.78rem; }
-        [data-testid="stMetricValue"] { color: #e6edf3; font-size: 1.4rem; font-weight: 600; }
+        }}
+        [data-testid="stMetricLabel"] {{ color: {T['text_muted']}; font-size: 0.78rem; }}
+        [data-testid="stMetricValue"] {{ color: {T['text']}; font-size: 1.4rem; font-weight: 600; }}
 
         /* Tabs */
-        .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-        .stTabs [data-baseweb="tab"] {
-            background: #161b22;
-            border: 1px solid #21262d;
+        .stTabs [data-baseweb="tab-list"] {{ gap: 8px; }}
+        .stTabs [data-baseweb="tab"] {{
+            background: {T['panel']};
+            border: 1px solid {T['border']};
             border-radius: 6px;
             padding: 6px 18px;
-            color: #8b949e;
-        }
-        .stTabs [aria-selected="true"] {
-            background: #1f6feb !important;
+            color: {T['text_muted']};
+        }}
+        .stTabs [aria-selected="true"] {{
+            background: {T['accent']} !important;
             color: white !important;
-            border-color: #1f6feb !important;
-        }
+            border-color: {T['accent']} !important;
+        }}
 
         /* Sidebar */
-        [data-testid="stSidebar"] { background-color: #161b22; }
+        [data-testid="stSidebar"] {{ background-color: {T['panel']}; }}
 
         /* Primary "Run Backtest" button — green, full size */
-        [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {
-            background-color: #238636;
+        [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {{
+            background-color: {T['btn_primary_bg']};
             color: white;
             border: none;
             font-weight: 600;
-        }
-        [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover {
-            background-color: #2ea043;
-        }
+        }}
+        [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover {{
+            background-color: {T['btn_primary_hover']};
+        }}
 
         /* Secondary buttons in sidebar (date-range presets) — compact */
-        [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+        [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {{
             padding: 4px 6px;
             min-height: 30px;
             font-size: 0.78rem;
             font-weight: 600;
             line-height: 1;
             white-space: nowrap;
-            background-color: #21262d;
-            color: #e6edf3;
-            border: 1px solid #30363d;
-        }
-        [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
-            background-color: #30363d;
-            border-color: #1f6feb;
-        }
+            background-color: {T['btn_secondary_bg']};
+            color: {T['text']};
+            border: 1px solid {T['border_strong']};
+        }}
+        [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {{
+            background-color: {T['btn_secondary_hover']};
+            border-color: {T['accent']};
+        }}
 
         /* Divider */
-        hr { border-color: #21262d; }
+        hr {{ border-color: {T['border']}; }}
 
         /* Expander */
-        [data-testid="stExpander"] {
-            background: #161b22;
-            border: 1px solid #21262d;
+        [data-testid="stExpander"] {{
+            background: {T['panel']};
+            border: 1px solid {T['border']};
             border-radius: 8px;
-        }
+        }}
 
         /* Let Plotly capture pinch / wheel gestures inside charts so the page
            doesn't scroll while the user is zooming the chart on mobile. */
-        [data-testid="stPlotlyChart"] {
+        [data-testid="stPlotlyChart"] {{
             touch-action: none;
-        }
+        }}
 
-        /* Input fields (date, text, number) — make sure typed/selected values
-           are readable against the dark sidebar background. */
+        /* Plotly range-selector chips on equity curve */
+        [data-testid="stPlotlyChart"] .rangeselector .button text {{
+            font-size: 12px !important;
+        }}
+        [data-testid="stPlotlyChart"] .rangeselector .button rect {{
+            rx: 4;
+            ry: 4;
+        }}
+
+        /* Input fields (date, text, number) — readable on the active background */
         [data-testid="stDateInput"] input,
         [data-testid="stTextInput"] input,
-        [data-testid="stNumberInput"] input {
-            color: #e6edf3 !important;
-            background-color: #0d1117 !important;
-            -webkit-text-fill-color: #e6edf3 !important;
-        }
+        [data-testid="stNumberInput"] input {{
+            color: {T['text']} !important;
+            background-color: {T['bg']} !important;
+            -webkit-text-fill-color: {T['text']} !important;
+        }}
         [data-testid="stDateInput"] input::placeholder,
         [data-testid="stTextInput"] input::placeholder,
-        [data-testid="stNumberInput"] input::placeholder {
-            color: #6e7681 !important;
-        }
+        [data-testid="stNumberInput"] input::placeholder {{
+            color: {T['text_dim']} !important;
+        }}
         /* Selectbox displayed value */
-        [data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-            color: #e6edf3 !important;
-        }
+        [data-testid="stSelectbox"] div[data-baseweb="select"] > div {{
+            color: {T['text']} !important;
+        }}
 
-        /* Pointer cursor on interactive controls (selectbox, radio, slider thumb,
-           date picker, expanders) — Streamlit defaults these to the text I-beam. */
+        /* Pointer cursor on interactive controls */
         [data-testid="stSelectbox"] div[data-baseweb="select"],
         [data-testid="stSelectbox"] div[data-baseweb="select"] *,
         [data-baseweb="popover"] li,
         [data-testid="stRadio"] label,
         [data-testid="stDateInput"] input,
         [data-testid="stExpander"] summary,
-        [data-testid="stSlider"] [role="slider"] {
+        [data-testid="stSlider"] [role="slider"] {{
             cursor: pointer !important;
-        }
+        }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------------------------
-# Header
+# Sticky Header — title on left, theme toggle on right
 # ---------------------------------------------------------------------------
 
-st.markdown(
-    """
-    <div style="padding: 16px 0 8px 0;">
-        <h1 style="font-size:2rem; font-weight:700; color:#e6edf3; margin:0;">
-            📈 Quant Backtest Engine
-        </h1>
-        <p style="color:#8b949e; margin:4px 0 0 0; font-size:0.95rem;">
-            Test algorithmic trading strategies against historical market data
-        </p>
-    </div>
-    <hr/>
-    """,
-    unsafe_allow_html=True,
-)
+# Marker div so the CSS selector .sticky-header applies styling to the
+# Streamlit container that immediately follows.
+st.markdown('<div class="sticky-header"></div>', unsafe_allow_html=True)
+
+with st.container():
+    h_left, h_right = st.columns([6, 1])
+    with h_left:
+        st.markdown(
+            f"""
+            <h1>📈 Quant Backtest Engine</h1>
+            <div class="subtitle">Test algorithmic trading strategies against historical market data</div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with h_right:
+        # Radio drives the theme; selecting a new value triggers a rerun
+        # which re-reads the theme on the next render.
+        new_mode = st.radio(
+            "Theme",
+            options=["dark", "light"],
+            format_func=lambda m: "🌙 Dark" if m == "dark" else "☀️ Light",
+            index=0 if st.session_state["theme_mode"] == "dark" else 1,
+            horizontal=True,
+            label_visibility="collapsed",
+            key="theme_radio",
+        )
+        if new_mode != st.session_state["theme_mode"]:
+            st.session_state["theme_mode"] = new_mode
+            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Sidebar — collect all parameters
@@ -179,33 +245,37 @@ params = render_sidebar()
 # ---------------------------------------------------------------------------
 
 if not params["run_clicked"]:
-    # Landing state
+    # Landing state — theme-aware feature cards
+    _card = (
+        f'background:{T["panel"]}; border:1px solid {T["border"]}; '
+        f'border-radius:8px; padding:16px 24px; min-width:160px;'
+    )
     st.markdown(
-        """
-        <div style="text-align:center; padding: 80px 0; color: #8b949e;">
+        f"""
+        <div style="text-align:center; padding: 80px 0; color: {T['text_muted']};">
             <div style="font-size: 3.5rem;">📊</div>
-            <h3 style="color: #e6edf3; margin-top: 12px;">Configure & Run Your Backtest</h3>
+            <h3 style="color: {T['text']}; margin-top: 12px;">Configure & Run Your Backtest</h3>
             <p>Select a ticker, date range, and strategy in the sidebar, then click <strong>Run Backtest</strong>.</p>
             <br/>
             <div style="display:flex; justify-content:center; gap:40px; flex-wrap:wrap;">
-                <div style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px 24px; min-width:160px;">
+                <div style="{_card}">
                     <div style="font-size:1.5rem;">📡</div>
-                    <div style="color:#e6edf3; font-weight:600; margin-top:8px;">Live Market Data</div>
+                    <div style="color:{T['text']}; font-weight:600; margin-top:8px;">Live Market Data</div>
                     <div style="font-size:0.8rem;">Powered by Yahoo Finance</div>
                 </div>
-                <div style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px 24px; min-width:160px;">
+                <div style="{_card}">
                     <div style="font-size:1.5rem;">⚡</div>
-                    <div style="color:#e6edf3; font-weight:600; margin-top:8px;">3 Strategies</div>
+                    <div style="color:{T['text']}; font-weight:600; margin-top:8px;">3 Strategies</div>
                     <div style="font-size:0.8rem;">MA Crossover · RSI · Buy & Hold</div>
                 </div>
-                <div style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px 24px; min-width:160px;">
+                <div style="{_card}">
                     <div style="font-size:1.5rem;">📐</div>
-                    <div style="color:#e6edf3; font-weight:600; margin-top:8px;">Quant Metrics</div>
+                    <div style="color:{T['text']}; font-weight:600; margin-top:8px;">Quant Metrics</div>
                     <div style="font-size:0.8rem;">CAGR · Drawdown · Sharpe</div>
                 </div>
-                <div style="background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px 24px; min-width:160px;">
+                <div style="{_card}">
                     <div style="font-size:1.5rem;">💸</div>
-                    <div style="color:#e6edf3; font-weight:600; margin-top:8px;">Realistic Costs</div>
+                    <div style="color:{T['text']}; font-weight:600; margin-top:8px;">Realistic Costs</div>
                     <div style="font-size:0.8rem;">Brokerage & slippage built-in</div>
                 </div>
             </div>
@@ -259,44 +329,53 @@ portfolio_df, trade_log_df = run_backtest(df_signals, initial_capital, transacti
 df_bh = bh_signals(df_raw)
 bh_portfolio_df, _ = run_backtest(df_bh, initial_capital, transaction_cost=0.0)
 
-# Compute metrics
-metrics = compute_metrics(portfolio_df, trade_log_df, initial_capital)
-bh_metrics = compute_metrics(bh_portfolio_df, pd.DataFrame(), initial_capital)
+# Compute metrics — risk-free rate auto-selected per market
+rf_rate = market_risk_free_rate(ticker)
+metrics = compute_metrics(portfolio_df, trade_log_df, initial_capital, risk_free_rate=rf_rate)
+bh_metrics = compute_metrics(bh_portfolio_df, pd.DataFrame(), initial_capital, risk_free_rate=rf_rate)
 drawdown_series = compute_drawdown_series(portfolio_df)
+
+# Verdict — only meaningful when the active strategy isn't B&H itself
+verdict = (
+    evaluate_strategy(metrics, bh_metrics)
+    if strategy_name != "Buy & Hold"
+    else None
+)
 
 # ---------------------------------------------------------------------------
 # Results header
 # ---------------------------------------------------------------------------
 
 # Build "info pills" describing the run config (params, capital, costs)
-def _pill(label: str, value: str, accent: str = "#1f6feb") -> str:
+def _pill(label: str, value: str, accent: str) -> str:
     return (
-        f'<span style="display:inline-block; background:#161b22; '
-        f'border:1px solid #21262d; border-left:3px solid {accent}; '
+        f'<span style="display:inline-block; background:{T["panel"]}; '
+        f'border:1px solid {T["border"]}; border-left:3px solid {accent}; '
         f'border-radius:6px; padding:4px 10px; margin:4px 6px 0 0; '
-        f'font-size:0.78rem; color:#e6edf3;">'
-        f'<span style="color:#8b949e;">{label}</span> '
+        f'font-size:0.78rem; color:{T["text"]};">'
+        f'<span style="color:{T["text_muted"]};">{label}</span> '
         f'<strong>{value}</strong></span>'
     )
 
 
 pills_html = ""
 if strategy_name == "Moving Average Crossover":
-    pills_html += _pill("SMA", f"{strategy_params['short_window']} / {strategy_params['long_window']}", "#ffa657")
+    pills_html += _pill("SMA", f"{strategy_params['short_window']} / {strategy_params['long_window']}", T["orange"])
 elif strategy_name == "RSI Mean Reversion":
-    pills_html += _pill("RSI", f"{strategy_params['rsi_period']} · {strategy_params['oversold']}/{strategy_params['overbought']}", "#79c0ff")
-pills_html += _pill("Capital", f"₹{initial_capital:,.0f}", "#26a641")
-pills_html += _pill("Cost / leg", f"{transaction_cost * 100:.2f}%", "#d2a8ff")
-pills_html += _pill("Bars", f"{len(df_signals):,}", "#8b949e")
+    pills_html += _pill("RSI", f"{strategy_params['rsi_period']} · {strategy_params['oversold']}/{strategy_params['overbought']}", T["cyan"])
+pills_html += _pill("Capital", f"₹{initial_capital:,.0f}", T["success"])
+pills_html += _pill("Cost / leg", f"{transaction_cost * 100:.2f}%", T["purple"])
+pills_html += _pill("Risk-free", f"{rf_rate * 100:.1f}% ({detect_market(ticker)})", T["link"])
+pills_html += _pill("Bars", f"{len(df_signals):,}", T["text_muted"])
 
 st.markdown(
     f"""
     <div style="padding: 8px 0 4px 0;">
-        <h2 style="font-size:1.5rem; color:#e6edf3; margin:0;">
+        <h2 style="font-size:1.5rem; color:{T['text']}; margin:0;">
             {strategy_name} &nbsp;·&nbsp;
-            <span style="color:#58a6ff;">{ticker}</span>
+            <span style="color:{T['link']};">{ticker}</span>
             &nbsp;·&nbsp;
-            <span style="color:#8b949e; font-size:1rem;">{start_date} → {end_date}</span>
+            <span style="color:{T['text_muted']}; font-size:1rem;">{start_date} → {end_date}</span>
         </h2>
         <div style="margin-top:8px;">{pills_html}</div>
     </div>
@@ -309,6 +388,13 @@ if trade_log_df.empty and strategy_name != "Buy & Hold":
         "No trades were triggered for this strategy in the selected date range. "
         "Try a wider date range or different parameters."
     )
+
+# ---------------------------------------------------------------------------
+# Verdict card
+# ---------------------------------------------------------------------------
+
+if verdict is not None:
+    render_verdict_card(verdict)
 
 # ---------------------------------------------------------------------------
 # Metric Cards
