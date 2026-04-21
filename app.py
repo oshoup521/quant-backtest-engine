@@ -114,6 +114,25 @@ st.markdown(
             touch-action: none;
         }
 
+        /* Input fields (date, text, number) — make sure typed/selected values
+           are readable against the dark sidebar background. */
+        [data-testid="stDateInput"] input,
+        [data-testid="stTextInput"] input,
+        [data-testid="stNumberInput"] input {
+            color: #e6edf3 !important;
+            background-color: #0d1117 !important;
+            -webkit-text-fill-color: #e6edf3 !important;
+        }
+        [data-testid="stDateInput"] input::placeholder,
+        [data-testid="stTextInput"] input::placeholder,
+        [data-testid="stNumberInput"] input::placeholder {
+            color: #6e7681 !important;
+        }
+        /* Selectbox displayed value */
+        [data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+            color: #e6edf3 !important;
+        }
+
         /* Pointer cursor on interactive controls (selectbox, radio, slider thumb,
            date picker, expanders) — Streamlit defaults these to the text I-beam. */
         [data-testid="stSelectbox"] div[data-baseweb="select"],
