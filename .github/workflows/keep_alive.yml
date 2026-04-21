@@ -11,7 +11,8 @@ jobs:
     steps:
       - name: Ping Streamlit app
         run: |
-          curl -fsSL --max-time 60 \
-            -A "Mozilla/5.0 (compatible; KeepAlive/1.0)" \
-            https://quant-backtest-engine.streamlit.app/ \
-            -o /dev/null
+          curl -sSL --max-time 90 --max-redirs 10 \
+            -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -c /tmp/cookies.txt -b /tmp/cookies.txt \
+            -o /dev/null -w "HTTP %{http_code} after %{num_redirects} redirects in %{time_total}s\n" \
+            https://quant-backtest-engine.streamlit.app/
