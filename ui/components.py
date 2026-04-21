@@ -112,8 +112,8 @@ def render_sidebar() -> dict:
     st.sidebar.subheader("Date Range")
     default_end = date.today()
 
-    # Quick presets — use session_state so the buttons drive the date inputs
-    preset_cols = st.sidebar.columns(len(DATE_PRESETS))
+    # Quick presets — single horizontal row of compact buttons
+    preset_cols = st.sidebar.columns(len(DATE_PRESETS), gap="small")
     for col, (label, days) in zip(preset_cols, DATE_PRESETS.items()):
         if col.button(label, use_container_width=True, key=f"preset_{label}"):
             lookback = days if days is not None else MAX_LOOKBACK_DAYS

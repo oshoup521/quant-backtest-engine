@@ -69,13 +69,34 @@ st.markdown(
 
         /* Sidebar */
         [data-testid="stSidebar"] { background-color: #161b22; }
-        [data-testid="stSidebar"] .stButton button {
+
+        /* Primary "Run Backtest" button — green, full size */
+        [data-testid="stSidebar"] [data-testid="stBaseButton-primary"] {
             background-color: #238636;
             color: white;
             border: none;
             font-weight: 600;
         }
-        [data-testid="stSidebar"] .stButton button:hover { background-color: #2ea043; }
+        [data-testid="stSidebar"] [data-testid="stBaseButton-primary"]:hover {
+            background-color: #2ea043;
+        }
+
+        /* Secondary buttons in sidebar (date-range presets) — compact */
+        [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+            padding: 4px 6px;
+            min-height: 30px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            line-height: 1;
+            white-space: nowrap;
+            background-color: #21262d;
+            color: #e6edf3;
+            border: 1px solid #30363d;
+        }
+        [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
+            background-color: #30363d;
+            border-color: #1f6feb;
+        }
 
         /* Divider */
         hr { border-color: #21262d; }
@@ -91,6 +112,18 @@ st.markdown(
            doesn't scroll while the user is zooming the chart on mobile. */
         [data-testid="stPlotlyChart"] {
             touch-action: none;
+        }
+
+        /* Pointer cursor on interactive controls (selectbox, radio, slider thumb,
+           date picker, expanders) — Streamlit defaults these to the text I-beam. */
+        [data-testid="stSelectbox"] div[data-baseweb="select"],
+        [data-testid="stSelectbox"] div[data-baseweb="select"] *,
+        [data-baseweb="popover"] li,
+        [data-testid="stRadio"] label,
+        [data-testid="stDateInput"] input,
+        [data-testid="stExpander"] summary,
+        [data-testid="stSlider"] [role="slider"] {
+            cursor: pointer !important;
         }
     </style>
     """,
