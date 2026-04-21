@@ -8,11 +8,54 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Ping Streamlit app
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
         run: |
-          curl -sSL --max-time 90 --max-redirs 10 \
-            -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-            -c /tmp/cookies.txt -b /tmp/cookies.txt \
-            -o /dev/null -w "HTTP %{http_code} after %{num_redirects} redirects in %{time_total}s\n" \
-            https://quant-backtest-engine.streamlit.app/
+          npm init -y
+          npm install --save-dev playwright
+          npx playwright install --with-deps chromium
+
+      - name: Wake Streamlit app
+        run: |
+          cat > wake.js <<'EOF'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch();
+            const context = await browser.newContext({
+              userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            });
+            const page = await context.newPage();
+            const url = 'https://quant-backtest-engine.streamlit.app/';
+
+            console.log('Loading', url);
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+            const wakeButton = page.getByRole('button', { name: /get this app back up/i });
+            try {
+              await wakeButton.waitFor({ timeout: 5000 });
+              console.log('App is asleep — clicking wake button');
+              await wakeButton.click();
+              await page.waitForLoadState('networkidle', { timeout: 120000 });
+              console.log('Wake-up clicked, app should be booting');
+            } catch {
+              console.log('No sleep screen detected — app is already awake');
+            }
+
+            await page.waitForTimeout(5000);
+            const title = await page.title();
+            console.log('Final page title:', title);
+
+            await browser.close();
+          })().catch((err) => {
+            console.error('Wake script failed:', err);
+            process.exit(1);
+          });
+          EOF
+          node wake.js
