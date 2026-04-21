@@ -207,6 +207,139 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------------------
+# Light-mode overrides — fix Streamlit's dark-base native widgets
+# ---------------------------------------------------------------------------
+if st.session_state.get("theme_mode") == "light":
+    LT = T  # already the LIGHT palette
+    st.markdown(
+        f"""
+        <style>
+            /* ---- Global text & backgrounds ---- */
+            .stApp, .stApp * {{ color: {LT['text']}; }}
+            .stApp p, .stApp span, .stApp div, .stApp label,
+            .stApp li, .stApp a {{ color: {LT['text']}; }}
+
+            /* ---- Sidebar labels & subheaders ---- */
+            [data-testid="stSidebar"] * {{ color: {LT['text']}; }}
+            [data-testid="stSidebar"] h1,
+            [data-testid="stSidebar"] h2,
+            [data-testid="stSidebar"] h3,
+            [data-testid="stSidebar"] .stMarkdown p {{ color: {LT['text']}; }}
+            [data-testid="stSidebar"] .stCaption {{ color: {LT['text_muted']}; }}
+
+            /* ---- Slider ---- */
+            [data-testid="stSlider"] > div > div > div {{
+                background-color: {LT['border']} !important;
+            }}
+            [data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {{
+                background-color: {LT['accent']} !important;
+                border-color: {LT['accent']} !important;
+            }}
+            /* active/filled track */
+            [data-testid="stSlider"] [data-baseweb="slider"] [data-baseweb="slider-inner-track"] {{
+                background-color: {LT['accent']} !important;
+            }}
+            [data-testid="stSlider"] span {{ color: {LT['text_muted']} !important; }}
+
+            /* ---- Selectbox / dropdown ---- */
+            [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+            [data-testid="stSelectbox"] div[data-baseweb="select"] > div > div {{
+                background-color: {LT['bg']} !important;
+                border-color: {LT['border']} !important;
+                color: {LT['text']} !important;
+            }}
+            [data-baseweb="popover"] [data-baseweb="menu"],
+            [data-baseweb="popover"] ul {{
+                background-color: {LT['bg']} !important;
+                border: 1px solid {LT['border']} !important;
+            }}
+            [data-baseweb="popover"] li {{
+                background-color: {LT['bg']} !important;
+                color: {LT['text']} !important;
+            }}
+            [data-baseweb="popover"] li:hover,
+            [data-baseweb="popover"] [aria-selected="true"] {{
+                background-color: {LT['panel_hover']} !important;
+            }}
+
+            /* ---- Radio buttons ---- */
+            [data-testid="stRadio"] label,
+            [data-testid="stRadio"] div,
+            [data-testid="stRadio"] p {{ color: {LT['text']} !important; }}
+            [data-testid="stRadio"] [data-baseweb="radio"] div:first-child {{
+                border-color: {LT['border_strong']} !important;
+                background-color: transparent !important;
+            }}
+            [data-testid="stRadio"] [aria-checked="true"] [data-baseweb="radio"] div:first-child {{
+                border-color: {LT['accent']} !important;
+                background-color: {LT['accent']} !important;
+            }}
+
+            /* ---- Number input stepper buttons ---- */
+            [data-testid="stNumberInput"] button {{
+                background-color: {LT['panel']} !important;
+                border-color: {LT['border']} !important;
+                color: {LT['text']} !important;
+            }}
+            [data-testid="stNumberInput"] button svg {{ fill: {LT['text']} !important; }}
+
+            /* ---- Input wrappers (border) ---- */
+            [data-testid="stDateInput"] > div,
+            [data-testid="stTextInput"] > div,
+            [data-testid="stNumberInput"] > div {{
+                background-color: {LT['bg']} !important;
+                border-color: {LT['border']} !important;
+            }}
+
+            /* ---- Expander toggle icon & summary text ---- */
+            [data-testid="stExpander"] summary {{
+                color: {LT['text']} !important;
+                background-color: {LT['panel']} !important;
+            }}
+            [data-testid="stExpander"] summary svg {{ stroke: {LT['text_muted']} !important; }}
+
+            /* ---- Markdown headings inside main panel ---- */
+            h1, h2, h3, h4, h5, h6 {{ color: {LT['text']} !important; }}
+
+            /* ---- Alert / info / warning / error boxes ---- */
+            [data-testid="stAlert"] {{
+                background-color: {LT['panel']} !important;
+                border-color: {LT['border']} !important;
+                color: {LT['text']} !important;
+            }}
+            [data-testid="stAlert"] p {{ color: {LT['text']} !important; }}
+
+            /* ---- DataFrame / table ---- */
+            [data-testid="stDataFrame"] {{
+                background-color: {LT['bg']} !important;
+            }}
+            [data-testid="stDataFrame"] * {{
+                color: {LT['text']} !important;
+                background-color: transparent !important;
+            }}
+
+            /* ---- Metric delta values ---- */
+            [data-testid="stMetricDelta"] {{ color: {LT['text_muted']} !important; }}
+
+            /* ---- Caption / helper text ---- */
+            .stCaption, [data-testid="stCaptionContainer"] {{
+                color: {LT['text_muted']} !important;
+            }}
+
+            /* ---- Dividers ---- */
+            [data-testid="stMarkdownContainer"] hr {{
+                border-color: {LT['border']} !important;
+            }}
+
+            /* ---- Scrollbar ---- */
+            ::-webkit-scrollbar-thumb {{ background: {LT['border_strong']}; }}
+            ::-webkit-scrollbar-track {{ background: {LT['panel']}; }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# ---------------------------------------------------------------------------
 # Sticky Header — title on left, theme toggle on right
 # ---------------------------------------------------------------------------
 
